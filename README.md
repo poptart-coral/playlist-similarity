@@ -1,7 +1,9 @@
 ## prerequisites
 
-- sbt
-- scala 
+- sbt 1.10.5
+- scala 2.13.16
+- docker 29.2.1
+- docker compose
 
 ## how to run
 
