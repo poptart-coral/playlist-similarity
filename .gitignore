@@ -2,3 +2,4 @@
 target/
 .bloop/
 clickhouse_data/
+spotify_million_playlist_dataset.zip
