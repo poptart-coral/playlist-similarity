@@ -40,3 +40,12 @@ lsh_buckets (
 ) ENGINE = ReplacingMergeTree()
 ORDER BY (bucket, playlist_id)
 ```
+
+```bash
+sbt "runMain com.similarity.jobs.SearchJob 320"
+
+curl -s "http://localhost:8123/?user=default&password=clickhouse&query=SELECT+pid,band_id,bucket_hash+FROM+lsh_buckets+WHERE+band_id=8+AND+bucket_hash='1a20e03855ec9660ca781a0b84fabf2e'"
+1657    8       1a20e03855ec9660ca781a0b84fabf2e
+100373  8       1a20e03855ec9660ca781a0b84fabf2e
+
+```
