@@ -1,0 +1,12 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.3.9.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./clickhouse-data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
