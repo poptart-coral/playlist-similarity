@@ -21,8 +21,8 @@ object NaiveSearchJob {
 
     val playlists = spark.read
       .option("multiline", "false")
-      .json("data/playlists.ndjson")
-      .filter(size(col("tracks")) >= 20)
+      .json("data/slices/")
+
       .cache()
 
     val targetRows = playlists.filter(col("pid") === targetPid).take(1)
@@ -42,7 +42,6 @@ object NaiveSearchJob {
 
     val start = System.currentTimeMillis()
 
-    // Compare TOUTES les playlists une par une — O(n²)
     val results = playlists
       .filter(col("pid") =!= targetPid)
       .collect()

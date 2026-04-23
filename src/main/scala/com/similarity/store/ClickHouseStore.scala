@@ -27,12 +27,12 @@ object ClickHouseStore {
     conn.close()
   }
 
-  def insert(buckets: Seq[Bucket]): Unit = {
+  def insertBatch(allBuckets: Seq[Bucket]): Unit = {
     val conn = DriverManager.getConnection(url)
     val stmt = conn.prepareStatement(
       "INSERT INTO lsh_buckets (band_id, bucket_hash, pid) VALUES (?, ?, ?)"
     )
-    buckets.foreach { b =>
+    allBuckets.foreach { b =>
       stmt.setInt(1, b.bandId)
       stmt.setString(2, b.bucketHash)
       stmt.setLong(3, b.pid)

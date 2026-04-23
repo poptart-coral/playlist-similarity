@@ -39,7 +39,7 @@ object EvaluationJob {
     // 2. Charge et cache les playlists + construit une map pid → tracks
     val playlists = spark.read
       .option("multiline", "false")
-      .json("data/playlists.ndjson")
+      .json("data/slices/")
       .select("pid", "tracks")
       .filter(r =>
         r.getAs[Any]("tracks") match {

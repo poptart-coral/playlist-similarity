@@ -9,7 +9,6 @@ import com.similarity.model.ScoredPlaylist
 import com.similarity.store.ClickHouseStore
 
 object SearchJob {
-
   def main(args: Array[String]): Unit = {
     require(args.length == 1, "Usage: SearchJob <playlist_id>")
 
@@ -20,15 +19,14 @@ object SearchJob {
       .appName("PlaylistSimilaritySearch")
       .master("local[*]")
       .getOrCreate()
-
     spark.sparkContext.setLogLevel("WARN")
 
+    // Lecture légère — pas de cache() sur 1M playlists
     val playlists = spark.read
       .option("multiline", "false")
-      .json("data/playlists.ndjson")
-      .filter(size(col("tracks")) >= 20)
-      .cache()
+      .json("data/slices/")
 
+    // Récupère uniquement la playlist cible
     val targetRows = playlists
       .filter(col("pid") === targetPid)
       .take(1)
@@ -39,8 +37,7 @@ object SearchJob {
       sys.exit(1)
     }
 
-    val targetRow = targetRows(0)
-    val targetTracks = toTrackSet(targetRow)
+    val targetTracks = targetRows(0).getAs[Seq[String]]("tracks").toSet
 
     val start = System.currentTimeMillis()
 
@@ -60,14 +57,10 @@ object SearchJob {
       sys.exit(0)
     }
 
-    import spark.implicits._
-    val candidateIdDs = candidateIds.toSeq.toDS()
-
+    // Charge UNIQUEMENT les candidats — pas tout le dataset
+    val candidatePids = candidateIds.toSeq
     val candidateRows = playlists
-      .join(
-        candidateIdDs.toDF("candidate_pid"),
-        playlists("pid") === col("candidate_pid")
-      )
+      .filter(col("pid").isin(candidatePids: _*))
       .select("pid", "tracks")
       .collect()
 
@@ -77,7 +70,7 @@ object SearchJob {
         val tracks = row.getAs[Seq[String]]("tracks").toSet
         ScoredPlaylist(pid, jaccard(targetTracks, tracks))
       }
-      .filter(_.score > 0.0)
+      .filter(_.score >= 0.5)
       .sortBy(sp => -sp.score)
 
     println(s"Playlist cible: $targetPid")
@@ -85,7 +78,6 @@ object SearchJob {
     println()
     println(f"${"playlist_id"}%-15s ${"jaccard"}%-10s")
     println("-" * 28)
-
     ranked.foreach { sp =>
       println(f"${sp.pid}%-15d ${sp.score}%-10.4f")
     }
@@ -93,13 +85,12 @@ object SearchJob {
     spark.stop()
   }
 
-  private def toTrackSet(row: Row): Set[String] = {
+  private def toTrackSet(row: Row): Set[String] =
     row.getAs[Seq[String]]("tracks").toSet
-  }
 
   private def jaccard(a: Set[String], b: Set[String]): Double = {
-    val intersection = a.intersect(b).size.toDouble
-    val union = a.union(b).size.toDouble
-    if (union == 0.0) 0.0 else intersection / union
+    val i = a.intersect(b).size.toDouble
+    val u = a.union(b).size.toDouble
+    if (u == 0.0) 0.0 else i / u
   }
 }

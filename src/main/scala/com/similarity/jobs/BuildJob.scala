@@ -7,10 +7,14 @@ import com.similarity.store.ClickHouseStore
 
 object BuildJob {
   def main(args: Array[String]): Unit = {
+    val doTruncate = args.lift(0).contains("--fresh")
 
     // Prepare ClickHouse (table creation)
     ClickHouseStore.setup()
-    ClickHouseStore.truncate()
+    if (doTruncate) {
+      ClickHouseStore.truncate()
+      println("Table vidée (--fresh)")
+    }
 
     // Start Spark
     val spark = SparkSession
@@ -25,7 +29,7 @@ object BuildJob {
     println("Lecture du NDJSON")
     val playlists = spark.read
       .option("multiline", "false")
-      .json("data/playlists.ndjson")
+      .json("data/slices/")
 
     playlists.printSchema()
     println(s"${playlists.count()} playlists chargées")
@@ -34,13 +38,13 @@ object BuildJob {
     println("Calcul signatures + insertion ClickHouse...")
     playlists.foreachPartition {
       (rows: Iterator[Row]) => // type explicite obligatoire sur Dataset[Row]
-        rows.foreach { row =>
+        val allBuckets = rows.flatMap { row =>
           val pid = row.getLong(row.fieldIndex("pid"))
           val tracks = row.getSeq[String](row.fieldIndex("tracks"))
           val sig = MinHasher.signature(tracks)
-          val bkts = BandBuilder.toBuckets(sig, pid)
-          ClickHouseStore.insert(bkts)
-        }
+          BandBuilder.toBuckets(sig, pid)
+        }.toSeq
+        ClickHouseStore.insertBatch(allBuckets)
     }
 
     spark.stop()
