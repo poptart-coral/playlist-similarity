@@ -2,6 +2,7 @@ package com.similarity.jobs
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, size}
 
 object NaiveSearchJob {
 
@@ -21,6 +22,7 @@ object NaiveSearchJob {
     val playlists = spark.read
       .option("multiline", "false")
       .json("data/playlists.ndjson")
+      .filter(size(col("tracks")) >= 20)
       .cache()
 
     val targetRows = playlists.filter(col("pid") === targetPid).take(1)
@@ -34,7 +36,9 @@ object NaiveSearchJob {
     val targetTracks = targetRows(0).getAs[Seq[String]]("tracks").toSet
     val totalPlaylists = playlists.count()
 
-    println(s"→ Comparaison exhaustive contre $totalPlaylists playlists...")
+    println(
+      s"→ Comparaison exhaustive contre $totalPlaylists playlists (seuil Jaccard >= 0.5)..."
+    )
 
     val start = System.currentTimeMillis()
 
@@ -48,15 +52,15 @@ object NaiveSearchJob {
         val score = jaccard(targetTracks, tracks)
         (pid, score)
       }
-      .filter { case (_, score) => score > 0.0 }
+      .filter { case (_, score) => score > 0.5 }
       .sortBy { case (_, score) => -score }
-      .take(10)
 
     val elapsed = System.currentTimeMillis() - start
 
     println(s"→ Temps écoulé : ${elapsed}ms pour $totalPlaylists playlists")
+    val factor = 1_000_000L / totalPlaylists
     println(
-      s"→ Extrapolation à 1M playlists : ${elapsed * 200}ms (≈${(elapsed * 200) / 1000}s)"
+      s"→ Extrapolation à 1M playlists : ${elapsed * factor}ms (≈${(elapsed * factor) / 1000}s)"
     )
     println()
     println(f"${"playlist_id"}%-15s ${"jaccard"}%-10s")

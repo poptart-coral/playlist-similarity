@@ -1,7 +1,7 @@
 package com.similarity.jobs
 
 import org.apache.spark.sql.{Row, SparkSession}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, size}
 
 import com.similarity.lsh.BandBuilder
 import com.similarity.minhash.MinHasher
@@ -26,6 +26,7 @@ object SearchJob {
     val playlists = spark.read
       .option("multiline", "false")
       .json("data/playlists.ndjson")
+      .filter(size(col("tracks")) >= 20)
       .cache()
 
     val targetRows = playlists
@@ -49,6 +50,9 @@ object SearchJob {
     val candidateIds = ClickHouseStore
       .candidatesBatch(targetBuckets)
       .filter(_ != targetPid)
+
+    val elapsed = System.currentTimeMillis() - start
+    println(s"→ Temps LSH : ${elapsed}ms")
 
     if (candidateIds.isEmpty) {
       println(s"Aucun candidat trouvé pour la playlist $targetPid")
@@ -75,10 +79,7 @@ object SearchJob {
       }
       .filter(_.score > 0.0)
       .sortBy(sp => -sp.score)
-      .take(10)
 
-    val elapsed = System.currentTimeMillis() - start
-    println(s"→ Temps LSH : ${elapsed}ms")
     println(s"Playlist cible: $targetPid")
     println(s"Nombre de candidats LSH: ${candidateIds.size}")
     println()
