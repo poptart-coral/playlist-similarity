@@ -49,3 +49,18 @@ curl -s "http://localhost:8123/?user=default&password=clickhouse&query=SELECT+pi
 100373  8       1a20e03855ec9660ca781a0b84fabf2e
 
 ```
+
+
+```bash
+python3 -c "
+import json, statistics
+counts = [len(json.loads(l)['tracks']) for l in open('data/playlists.ndjson')]
+print(f'Moyenne  : {statistics.mean(counts):.1f} tracks')
+print(f'Médiane  : {statistics.median(counts):.1f} tracks')
+print(f'Min      : {min(counts)}')
+print(f'Max      : {max(counts)}')
+"
+Moyenne  : 67.0 tracks
+Médiane  : 49.0 tracks
+Min      : 5
+```

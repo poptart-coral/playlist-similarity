@@ -4,9 +4,9 @@ import com.similarity.model.Bucket
 import com.google.common.hash.Hashing
 import java.nio.ByteBuffer
 
-object BandBuilder {
-  val NUM_BANDS     = 16
-  val ROWS_PER_BAND = 8
+object BandBuilder { 
+  val NUM_BANDS     = 16 // TODO : à ajuster en fonction de la taille de la signature et du seuil de similarité souhaité
+  val ROWS_PER_BAND = 8  // 128 / 
 
   def toBuckets(sig: Array[Int], pid: Long): Seq[Bucket] = {
     (0 until NUM_BANDS).map { band =>

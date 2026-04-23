@@ -10,7 +10,11 @@ object JaccardScorer {
     else a.intersect(b).size.toDouble / a.union(b).size
 
   // Jaccard to compute the similarity between a query playlist and all other playlists, returning the top k most similar ones.
-  def exactTopK(query: Playlist, all: Seq[Playlist], k: Int = 10): Seq[ScoredPlaylist] = {
+  def exactTopK(
+      query: Playlist,
+      all: Seq[Playlist],
+      k: Int = 10
+  ): Seq[ScoredPlaylist] = {
     val querySet = query.tracks.toSet
     all
       .filterNot(_.pid == query.pid)

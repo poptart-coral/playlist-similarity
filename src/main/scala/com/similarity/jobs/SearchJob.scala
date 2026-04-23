@@ -15,7 +15,8 @@ object SearchJob {
 
     val targetPid = args(0).toLong
 
-    val spark = SparkSession.builder()
+    val spark = SparkSession
+      .builder()
       .appName("PlaylistSimilaritySearch")
       .master("local[*]")
       .getOrCreate()
@@ -40,13 +41,14 @@ object SearchJob {
     val targetRow = targetRows(0)
     val targetTracks = toTrackSet(targetRow)
 
+    val start = System.currentTimeMillis()
+
     val targetSig = MinHasher.signature(targetTracks.toSeq)
     val targetBuckets = BandBuilder.toBuckets(targetSig, targetPid)
 
-    val candidateIds = targetBuckets
-      .flatMap(b => ClickHouseStore.candidates(b.bandId, b.bucketHash))
+    val candidateIds = ClickHouseStore
+      .candidatesBatch(targetBuckets)
       .filter(_ != targetPid)
-      .distinct
 
     if (candidateIds.isEmpty) {
       println(s"Aucun candidat trouvé pour la playlist $targetPid")
@@ -58,7 +60,10 @@ object SearchJob {
     val candidateIdDs = candidateIds.toSeq.toDS()
 
     val candidateRows = playlists
-      .join(candidateIdDs.toDF("candidate_pid"), playlists("pid") === col("candidate_pid"))
+      .join(
+        candidateIdDs.toDF("candidate_pid"),
+        playlists("pid") === col("candidate_pid")
+      )
       .select("pid", "tracks")
       .collect()
 
@@ -72,6 +77,8 @@ object SearchJob {
       .sortBy(sp => -sp.score)
       .take(10)
 
+    val elapsed = System.currentTimeMillis() - start
+    println(s"→ Temps LSH : ${elapsed}ms")
     println(s"Playlist cible: $targetPid")
     println(s"Nombre de candidats LSH: ${candidateIds.size}")
     println()

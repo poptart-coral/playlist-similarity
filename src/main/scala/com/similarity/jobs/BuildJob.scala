@@ -3,16 +3,18 @@ package com.similarity.jobs
 import org.apache.spark.sql.{SparkSession, Row}
 import com.similarity.minhash.MinHasher
 import com.similarity.lsh.BandBuilder
-import com.similarity.store.ClickHouseStore 
+import com.similarity.store.ClickHouseStore
 
 object BuildJob {
   def main(args: Array[String]): Unit = {
 
     // Prepare ClickHouse (table creation)
     ClickHouseStore.setup()
+    ClickHouseStore.truncate()
 
     // Start Spark
-    val spark = SparkSession.builder()
+    val spark = SparkSession
+      .builder()
       .appName("PlaylistSimilarityBuild")
       .master("local[*]")
       .getOrCreate()
@@ -30,14 +32,15 @@ object BuildJob {
 
     // MinHash + BandBuilder + ClickHouse insertion
     println("Calcul signatures + insertion ClickHouse...")
-    playlists.foreachPartition { (rows: Iterator[Row]) =>  // type explicite obligatoire sur Dataset[Row]
-      rows.foreach { row =>
-        val pid    = row.getLong(row.fieldIndex("pid"))
-        val tracks = row.getSeq[String](row.fieldIndex("tracks"))
-        val sig    = MinHasher.signature(tracks)
-        val bkts   = BandBuilder.toBuckets(sig, pid)
-        ClickHouseStore.insert(bkts)
-      }
+    playlists.foreachPartition {
+      (rows: Iterator[Row]) => // type explicite obligatoire sur Dataset[Row]
+        rows.foreach { row =>
+          val pid = row.getLong(row.fieldIndex("pid"))
+          val tracks = row.getSeq[String](row.fieldIndex("tracks"))
+          val sig = MinHasher.signature(tracks)
+          val bkts = BandBuilder.toBuckets(sig, pid)
+          ClickHouseStore.insert(bkts)
+        }
     }
 
     spark.stop()
